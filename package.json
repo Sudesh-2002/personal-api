@@ -1,0 +1,29 @@
+{
+  "name": "personal-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal API — a local data layer for preferences, schedule, and context",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint . --ext .ts,.tsx,.js",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
