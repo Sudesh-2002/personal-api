@@ -13,7 +13,13 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "eslint . --ext .ts,.tsx,.js",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
-    "clean": "npm run clean --workspaces --if-present"
+    "clean": "npm run clean --workspaces --if-present",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose --env-file infrastructure/docker/.env.docker up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:ps": "docker compose ps",
+    "docker:clean": "docker compose down -v --rmi local"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.0.0",

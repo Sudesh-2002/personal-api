@@ -1,0 +1,174 @@
+version: "3.9"
+
+# ── Networks ──────────────────────────────────────────────────
+networks:
+  personal-api-net:
+    driver: bridge
+
+# ── Volumes ───────────────────────────────────────────────────
+volumes:
+  preference-data:
+  schedule-data:
+  auth-data:
+
+# ── Services ──────────────────────────────────────────────────
+services:
+
+  # ── Preference Service ──────────────────────────────────────
+  preference-service:
+    build:
+      context: .
+      dockerfile: apps/preference-service/Dockerfile
+      target: production
+    container_name: personal-api-preference
+    restart: unless-stopped
+    networks:
+      - personal-api-net
+    volumes:
+      - preference-data:/data
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3001
+      HOST: 0.0.0.0
+      DB_PATH: /data/preferences.db
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ── Schedule Service ────────────────────────────────────────
+  schedule-service:
+    build:
+      context: .
+      dockerfile: apps/schedule-service/Dockerfile
+      target: production
+    container_name: personal-api-schedule
+    restart: unless-stopped
+    networks:
+      - personal-api-net
+    volumes:
+      - schedule-data:/data
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3002
+      HOST: 0.0.0.0
+      DB_PATH: /data/schedule.db
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-Asia/Colombo}
+    expose:
+      - "3002"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ── Auth Service ────────────────────────────────────────────
+  auth-service:
+    build:
+      context: .
+      dockerfile: apps/auth-service/Dockerfile
+      target: production
+    container_name: personal-api-auth
+    restart: unless-stopped
+    networks:
+      - personal-api-net
+    volumes:
+      - auth-data:/data
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3004
+      HOST: 0.0.0.0
+      DB_PATH: /data/auth.db
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL:-3600}
+      JWT_REFRESH_TOKEN_TTL: ${JWT_REFRESH_TOKEN_TTL:-2592000}
+      API_KEY_PREFIX: ${API_KEY_PREFIX:-papi}
+    expose:
+      - "3004"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ── Context Service ─────────────────────────────────────────
+  context-service:
+    build:
+      context: .
+      dockerfile: apps/context-service/Dockerfile
+      target: production
+    container_name: personal-api-context
+    restart: unless-stopped
+    networks:
+      - personal-api-net
+    depends_on:
+      preference-service:
+        condition: service_healthy
+      schedule-service:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3003
+      HOST: 0.0.0.0
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PREFERENCE_SERVICE_URL: http://preference-service:3001
+      SCHEDULE_SERVICE_URL: http://schedule-service:3002
+      CONTEXT_CACHE_TTL_MS: ${CONTEXT_CACHE_TTL_MS:-30000}
+    expose:
+      - "3003"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── API Gateway ─────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: .
+      dockerfile: apps/api-gateway/Dockerfile
+      target: production
+    container_name: personal-api-gateway
+    restart: unless-stopped
+    networks:
+      - personal-api-net
+    depends_on:
+      preference-service:
+        condition: service_healthy
+      schedule-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      context-service:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+      HOST: 0.0.0.0
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      JWT_SECRET: ${JWT_SECRET}
+      API_KEY_HEADER: x-api-key
+      PREFERENCE_SERVICE_URL: http://preference-service:3001
+      SCHEDULE_SERVICE_URL: http://schedule-service:3002
+      CONTEXT_SERVICE_URL: http://context-service:3003
+      AUTH_SERVICE_URL: http://auth-service:3004
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-100}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
